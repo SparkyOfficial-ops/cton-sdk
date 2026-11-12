@@ -235,61 +235,25 @@ jobs:
           cpp/build/cton-sdk-core.so
     - name: Create Release Assets
       run: |
-        # Create artifacts directory
-        mkdir -p artifacts
-        cd artifacts
-        
-        # Create platform-specific packages
-        # Find the actual library files - Windows
-        WINDOWS_LIB=""
-        if [ -f "../cpp/build/Release/cton-sdk-core.dll" ]; then
-          WINDOWS_LIB="../cpp/build/Release/cton-sdk-core.dll"
-        elif [ -f "../cpp/build/cton-sdk-core.dll" ]; then
-          WINDOWS_LIB="../cpp/build/cton-sdk-core.dll"
-        elif [ -f "../cpp/build/Debug/cton-sdk-core.dll" ]; then
-          WINDOWS_LIB="../cpp/build/Debug/cton-sdk-core.dll"
-        fi
-        
-        # Find the actual library files - Linux
-        LINUX_LIB=""
-        if [ -f "../cpp/build/libcton-sdk-core.so" ]; then
-          LINUX_LIB="../cpp/build/libcton-sdk-core.so"
-        elif [ -f "../cpp/build/cton-sdk-core.so" ]; then
-          LINUX_LIB="../cpp/build/cton-sdk-core.so"
-        fi
-        
-        # Check if we found the libraries
-        if [ -z "$WINDOWS_LIB" ]; then
-          echo "Windows DLL not found, listing build directory:"
-          ls -la ../cpp/build/
-          ls -la ../cpp/build/Release/ 2>/dev/null || echo "Release directory not found"
-          ls -la ../cpp/build/Debug/ 2>/dev/null || echo "Debug directory not found"
-          find ../cpp/build/ -name "*.dll" 2>/dev/null || echo "No .dll files found"
+        # This job runs on Ubuntu and only has the Linux library.
+        mkdir -p artifacts/temp/linux
+        if [ -f cpp/build/libcton-sdk-core.so ]; then
+          LINUX_LIB=cpp/build/libcton-sdk-core.so
+        elif [ -f cpp/build/cton-sdk-core.so ]; then
+          LINUX_LIB=cpp/build/cton-sdk-core.so
+        else
+          echo "Linux SO not found:"
+          find cpp/build -name "*.so" || true
           exit 1
         fi
-        
-        if [ -z "$LINUX_LIB" ]; then
-          echo "Linux SO not found, listing build directory:"
-          ls -la ../cpp/build/
-          find ../cpp/build/ -name "*.so" 2>/dev/null || echo "No .so files found"
-          exit 1
-        fi
-        
-        # Create zip with the actual library files
-        mkdir -p temp/windows
-        mkdir -p temp/linux
-        cp "$WINDOWS_LIB" temp/windows/
-        cp "$LINUX_LIB" temp/linux/
-        zip -r cton-sdk-windows.zip temp/windows/
-        tar -czf cton-sdk-linux.tar.gz temp/linux/
+        cp "$LINUX_LIB" artifacts/temp/linux/
+        tar -czf artifacts/cton-sdk-linux.tar.gz -C artifacts/temp linux
         
     - name: Upload Release Assets
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/v')
       with:
-        files: |
-          artifacts/cton-sdk-windows.zip
-          artifacts/cton-sdk-linux.tar.gz
+        files: artifacts/cton-sdk-linux.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
